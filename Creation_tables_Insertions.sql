@@ -311,38 +311,25 @@ NomCategorie VARCHAR(30) PRIMARY KEY
 /
 
 -- insertion des données
-INSERT INTO CATEGORIE VALUES ('Action');
-INSERT INTO CATEGORIE VALUES ('Anime');
-INSERT INTO CATEGORIE VALUES ('Asie');
-INSERT INTO CATEGORIE VALUES ('Aventure');
-INSERT INTO CATEGORIE VALUES ('Comédie');
-INSERT INTO CATEGORIE VALUES ('Court-métrage');
-INSERT INTO CATEGORIE VALUES ('Cuisine et voyages');
-INSERT INTO CATEGORIE VALUES ('Documentaire');
-INSERT INTO CATEGORIE VALUES ('Drame');
-INSERT INTO CATEGORIE VALUES ('Droit');
-INSERT INTO CATEGORIE VALUES ('Emotions');
-INSERT INTO CATEGORIE VALUES ('Fantastique');
-INSERT INTO CATEGORIE VALUES ('Guerre');
-INSERT INTO CATEGORIE VALUES ('Histoire');
-INSERT INTO CATEGORIE VALUES ('Horreur');
-INSERT INTO CATEGORIE VALUES ('Indépendant');
-INSERT INTO CATEGORIE VALUES ('Jeunesse et Famille');
-INSERT INTO CATEGORIE VALUES ('LGBTQ+');
-INSERT INTO CATEGORIE VALUES ('Médical');
-INSERT INTO CATEGORIE VALUES ('Musique et Comédie musicale');
-INSERT INTO CATEGORIE VALUES ('Policier');
-INSERT INTO CATEGORIE VALUES ('Primé');
-INSERT INTO CATEGORIE VALUES ('Psychologique');
-INSERT INTO CATEGORIE VALUES ('Romance');
-INSERT INTO CATEGORIE VALUES ('Sciences et nature');
-INSERT INTO CATEGORIE VALUES ('Science-fiction');
-INSERT INTO CATEGORIE VALUES ('Sport');
-INSERT INTO CATEGORIE VALUES ('Stand-up et talk-show');
-INSERT INTO CATEGORIE VALUES ('Téléréalité');
-INSERT INTO CATEGORIE VALUES ('Thriller');
+DECLARE
+    TYPE categorie_list IS TABLE OF VARCHAR2(30);
+    categories categorie_list := categorie_list(
+        'Action', 'Anime', 'Asie', 'Aventure', 'Comédie',
+        'Court-métrage', 'Cuisine et voyages', 'Documentaire',
+        'Drame', 'Droit', 'Emotions', 'Fantastique', 'Guerre',
+        'Histoire', 'Horreur', 'Indépendant', 'Jeunesse et Famille',
+        'LGBTQ+', 'Médical', 'Musique et Comédie musicale', 'Policier',
+        'Primé', 'Psychologique', 'Romance', 'Sciences et nature',
+        'Science-fiction', 'Sport', 'Stand-up et talk-show', 'Téléréalité', 'Thriller'
+    );
+BEGIN
+    FOR i IN 1..categories.COUNT LOOP
+        INSERT INTO Categorie(NomCategorie) VALUES (categories(i));
+    END LOOP;
+END;
 /
-        -- ==> est-ce qu'il y a moyen de faire une boucle sur une liste ??
+
+
 ------------------------------------------------------------------
 ------------------------------------------------------------------
 
