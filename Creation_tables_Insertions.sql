@@ -1,3 +1,15 @@
+Drop TABLE Definit;
+Drop TABLE Participe;
+DROP TABLE Avis;
+DROP TABLE LectureEP;
+DROP TABLE LectureFilm;
+DROP TABLE Categorie;
+DROP TABLE Professionnel;
+DROP TABLE Episode;
+DROP TABLE Contenu;
+DROP TABLE Profil;
+DROP TABLE Client;
+
 /* TABLE ABONNEMENT */
 
 -- création de la table
