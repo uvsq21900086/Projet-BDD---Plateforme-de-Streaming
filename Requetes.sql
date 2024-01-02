@@ -41,6 +41,21 @@ WHERE NOT EXISTS (select pa.IDContenu
 				and f.IDProfil = p.IDProfil and e.IDProfil = p.IDProfil));
 /
 
+-- 10
+-- - on regarde toutes les séries qu'un profil a déjà regardé (au moins un épisode)
+-- - on regarde si parmi les épisoes de ces séries il y en a dont la date de sortie est supérieure à sysdate
+-- - on met tous ces épisodes dans une table avec le titre de la série, le numsaison, le numepisode, le titre de l'épisode et la date de sortie de l'épisode
+
+-- 12
+SELECT a.IDClient, a.IDProfil, cl.TypeAbonnement, COUNT(cl.TypeAbonnement)
+FROM Avis a, Participe pa, Professionnel pr, Client cl
+WHERE pr.Nom = 'Dwayne The Rock' AND pr.Prenom = 'Johnson'
+AND pa.Profession = 'Acteur' AND pa.Role = 'Principal'
+AND a.IDContenu = pr.IDContenu AND pa.IDPro = pr.IDPro
+AND a.IDClient = cl.IDClient
+GROUP BY cl.TypeAbonnement;
+/
+
 -- 13
 SELECT temp1.Famille, temp2.Standard
 FROM (select p.IDClient, p.IDProfil (count(p.IDProfil)/count(distinct p.IDClient)) into Famille
@@ -107,6 +122,14 @@ GROUP BY a.IDClient
 HAVING COUNT(a.IDContenu) >= 30;
 /
 
+-- 23
+SELECT f.TitreContenu, COUNT(DISTINCT l.IDContenu)
+FROM LectureFilm l, Films f
+WHERE l.DateRegarde LIKE '%-jul-2023'
+AND l.IDContenu = f.IDContenu
+GROUP BY l.IDContenu;
+/
+
 -- 25
 SELECT co.TitreContenu, a.Commentaire
 FROM Client cl, Profil p, Avis a, Contenu co
@@ -115,7 +138,7 @@ AND cl.IDClient = p.IDClient AND p.IDClient = a.IDClient AND p.IDProfil = a.IDPr
 AND a.IDContenu = co.IDContenu;
 /
 
-
+-- REVOIR TOUS LES COUNT() PARCE QUE JE COMPRENDS PLUS COMMENT CA S'UTILISE
 
 
 

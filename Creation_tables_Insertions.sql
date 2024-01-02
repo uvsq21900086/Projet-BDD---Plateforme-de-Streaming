@@ -6,6 +6,7 @@ TypeAbonnement VARCHAR(9) PRIMARY KEY,
 Tarif NUMBER(4,2) NOT NULL
 );
 /
+
 -- insertion des données
 INSERT INTO Abonnement VALUES ('Essentiel', 0.00);
 INSERT INTO Abonnement VALUES ('Etudiant', 5.99);
@@ -77,8 +78,8 @@ BEGIN
 	where IDClient = :new.IDClient;
 	
 	IF :new.TypeAbonnement in ('Essentiel', 'Etudiant') AND n >= 1
-    		THEN raise_application_error(-20001, 'Impossible de créer un nouveau profil : 1 profil maximum autorisé pour le type dabonnement.');
-    	END IF;
+    	THEN raise_application_error(-20001, 'Impossible de créer un nouveau profil : 1 profil maximum autorisé pour le type dabonnement.');
+    END IF;
 	IF :new.TypeAbonnement = 'Standard' AND n >= 2
 		THEN raise_application_error(-20002, 'Impossible de créer un nouveau profil : 2 profils maximum autorisés pour le type dabonnement.');
 	END IF;
@@ -93,13 +94,40 @@ CREATE OR REPLACE TRIGGER profil_enf before insert on Profil for each row
 DECLARE
 	p	int;
 BEGIN
-	select count(*) into p
-	from Profil
-	where IDClient = :new.IDClient
-	and TypeProfil = 'Adulte';
+	IF :new.TypeProfil = 'Enfant' THEN
+		select count(*) into p
+		from Profil
+		where IDClient = :new.IDClient
+		and TypeProfil = 'Adulte';
 
-	IF p = 0
-		THEN raise_application_error(-20004, 'Impossible de créer un nouveau profil enfant : 1 profil adulte minimum est requis.');
+		IF p = 0
+			THEN raise_application_error(-20004, 'Impossible de créer un nouveau profil enfant : 1 profil adulte minimum est requis.');
+		END IF;
+	END IF;
+END;
+/
+
+-- trigger pour vérifier qu'il y a bien toujours un profil Adulte associé au compte client s'il y a un profil Enfant avant de supprimer un autre profil Adulte 
+CREATE OR REPLACE TRIGGER suppr_adulte before delete on Profil for each row
+DECLARE
+	a	int;
+	e	int;
+BEGIN
+	select count(*) into e
+	from Profil
+	where IDClient = :old.IDClient
+	and TypeProfil = 'Enfant';
+	  
+	IF :old.TypeProfil = 'Adulte' and e > 0 THEN
+		select count(*) into a
+		from Profil
+		where IDClient = :old.IDClient
+		and TypeProfil = 'Adulte';
+		
+		IF a = 0
+			THEN raise_application_error(-20005)
+			  	  
+		END IF;
 	END IF;
 END;
 /
@@ -111,12 +139,12 @@ start with 1;
         -- => pas sûr qu'on mette ça, voir avec la procédure d'après
 
 -- trigger pour la séquence IDProfil
-CREATE OR REPLACE TRIGGER id_profil before insert on Profil for each row
+CREATE OR REPLACE TRIGGER nouveau_prof before insert on Profil for each row
 DECLARE
 	cursor c1 is select *
-			from Profil
-			where IDClient = :new.IDClient
-			order by IDProfil ASC;
+				from Profil
+				where IDClient = :new.IDClient
+				order by IDProfil ASC;
 BEGIN
         -- ===> ALERTE PROBLEME	
 END;
@@ -124,8 +152,8 @@ END;
 -- trigger pour vérifier que le MotDePasseProfil est conforme
 CREATE OR REPLACE TRIGGER mdp_profil before insert on Profil for each row
 BEGIN
-	IF (MotDePasseProfil NOT NULL) AND ((LENGTH(MotDePasseProfil)) != 4 OR (VALIDATE_CONVERSION(MotDePasseProfil AS NUMBER) = 0))
-		THEN raise_application_error(-20008, 'Le mot de passe saisi nest pas conforme : veuillez entrer un code à 4 chiffres.');
+	IF (:new.MotDePasseProfil NOT NULL) AND ((LENGTH(:new.MotDePasseProfil)) != 4 OR (VALIDATE_CONVERSION(:new.MotDePasseProfil AS NUMBER) = 0))
+		THEN raise_application_error(-20006, 'Le mot de passe saisi nest pas conforme : veuillez entrer un code à 4 chiffres.');
 	END IF;
 END;
 /
@@ -151,11 +179,11 @@ AnneeSerie NUMBER(4)
 -- trigger pour vérifier que selon le type de contenu, les bonnes colonnes d'un tuple sont remplies
 CREATE OR REPLACE TRIGGER type_contenu before insert on Contenu for each row
 BEGIN
-	IF TypeContenu = 'Film' AND (DateSortieFilm IS NULL OR DureeFilm IS NULL)
-		THEN raise_application_error(-20005, 'Si le contenu est un film, veuillez renseigner les champs DateSortieFilm et DureeFilm.');
+	IF :new.TypeContenu = 'Film' AND (:new.DateSortieFilm IS NULL OR :new.DureeFilm IS NULL)
+		THEN raise_application_error(-20007, 'Si le contenu est un film, veuillez renseigner les champs DateSortieFilm et DureeFilm.');
 	END IF;
-	IF TypeContenu = 'Série' AND AnneeSerie IS NULL
-		THEN raise_application_error(-20006, 'Si le contenu est une série, veuillez renseigner le champs AnneeSerie.');
+	IF :new.TypeContenu = 'Série' AND :new.AnneeSerie IS NULL
+		THEN raise_application_error(-20008, 'Si le contenu est une série, veuillez renseigner le champs AnneeSerie.');
 	END IF;
 END;
 ------------------------------------------------------------------
@@ -182,8 +210,8 @@ BEGIN
 	select TypeContenu into t
 	from Contenu
 	where IDContenu = :new.IDContenu;
-	IF TypeContenu = 'Film'
-		THEN raise_application_error(-20007, 'Impossible dajouter un épisode à un film : le contenu doit être une série.');
+	IF t = 'Film'
+		THEN raise_application_error(-20009, 'Impossible dajouter un épisode à un film : le contenu doit être une série.');
 	END IF;
 END;
 /
@@ -242,7 +270,7 @@ INSERT INTO Abonnement VALUES ('Stand-up et talk-show');
 INSERT INTO Abonnement VALUES ('Téléréalité');
 INSERT INTO Abonnement VALUES ('Thriller');
 /
-        -- est-ce qu'il y a moyen de faire une boucle sur une liste ??
+        -- ==> est-ce qu'il y a moyen de faire une boucle sur une liste ??
 ------------------------------------------------------------------
 ------------------------------------------------------------------
 
@@ -301,18 +329,18 @@ END;
 CREATE OR REPLACE TRIGGER lectenf_film before insert on LectureFilm
 DECLARE
 	t	Profil.TypeProfil%type;
-	c	Contenu.Classification%type;
+	cl	Contenu.Classification%type;
 BEGIN
 	select TypeProfil into t
 	from Profil
 	where IDClient = :new.IDClient
 	and IDProfil = :new.IDProfil;
 	
-	select Classification into c
+	select Classification into cl
 	from Contenu
 	where IDContenu = :new.IDContenu;
 
-	IF t = 'Enfant' AND Classification not in ('Tous publics', '-10 ans', '-12 ans')
+	IF t = 'Enfant' AND cl not in ('Tous publics', '-10 ans', '-12 ans')
 		THEN raise_application_error(-20012, 'Impossible pour ce profil de regarder ce film : classification inadaptée.');
 	END IF;
 END;
@@ -364,7 +392,7 @@ DECLARE
 BEGIN
 	select TypeContenu into t
 	from Contenu
-	where IDContenu = :new.IdContenu;
+	where IDContenu = :new.IDContenu;
 	IF t = 'Film'
 		THEN raise_application_error(-20021, 'Ce contenu est une film : à insérer dans la table LectureFilm.');
 	END IF;
@@ -384,18 +412,18 @@ END;
 CREATE OR REPLACE TRIGGER lectenf_ep before insert on LectureEP
 DECLARE
 	t	Profil.TypeProfil%type;
-	c	Contenu.Classification%type;
+	cl	Contenu.Classification%type;
 BEGIN
 	select TypeProfil into t
 	from Profil
 	where IDClient = :new.IDClient
 	and IDProfil = :new.IDProfil;
 	
-	select Classification into c
+	select Classification into cl
 	from Contenu
 	where IDContenu = :new.IDContenu;
 
-	IF t = 'Enfant' AND Classification not in ('Tous publics', '-10 ans', '-12 ans')
+	IF t = 'Enfant' AND cl not in ('Tous publics', '-10 ans', '-12 ans')
 		THEN raise_application_error(-20022, 'Impossible pour ce profil de regarder cet épisode : classification inadaptée.');
 	END IF;
 END;
@@ -416,7 +444,7 @@ BEGIN
 	where IDContenu = :new.IDContenu;
 
 	IF a = 'Essentiel' AND d = 'Payant'
-		THEN raise_application_error(-20023, 'Impossible de lire cet épisode avec l'abonnement Essentiel.);
+		THEN raise_application_error(-20023, 'Impossible de lire cet épisode avec labonnement Essentiel.');
 	END IF;
 END;
 /
@@ -453,11 +481,11 @@ END;
 -- trigger pour modifier un avis
 CREATE OR REPLACE TRIGGER modif_avis before insert on Avis
 BEGIN
-==> A FAIRE
+		-- ==> A FAIRE
 END;
 ------------------------------------------------------------------
 
-/*TABLE PARTICIPE */
+/* TABLE PARTICIPE */
 
 -- création de la table
 CREATE TABLE Participe (
@@ -503,7 +531,7 @@ CREATE VIEW Videos (IDContenu, DateSortie, Titre, NumSaison, NumEpisode, TitreEp
 SELECT IDContenu, DateSortieFilm, TitreContenu, NULL, NULL, NULL
 FROM Films
 UNION
-SELECT e.IDContenu, e.DateSortieEpisode, S.TitreContenu, e.NumSaison, e.NumEpisode, e.TitreEpisode
+SELECT e.IDContenu, e.DateSortieEpisode, s.TitreContenu, e.NumSaison, e.NumEpisode, e.TitreEpisode
 FROM Episode e, Series s
 WHERE e.IDContenu = s.IDContenu;
 /
@@ -524,7 +552,7 @@ execute afficher_compte(*IDClient*);
 -- package pour afficher les informations d'un profil et son historique
 CREATE OR REPLACE PACKAGE info_profil IS
 	PROCEDURE afficher_profil(id_cli in Client.IDClient%type, id_prof in Profil.IDProfil%type);
-	PROCEDURE PROCEDURE historique_profil(id_cli in Client.IDClient%type, id_prof in Profil.IDProfil%type);
+	PROCEDURE historique_profil(id_cli in Client.IDClient%type, id_prof in Profil.IDProfil%type);
 END info_profil;
 
 CREATE OR REPLACE PACKAGE BODY info_profil IS
@@ -539,6 +567,7 @@ END;
 PROCEDURE historique_profil(id_cli in Client.IDClient%type, id_prof in Profil.IDProfil%type) IS
 BEGIN
 	CREATE VIEW Historique(TempsDebut, Titre, NumSaison, NumEpisode, TitreEpisode) AS
+
 	SELECT l1.TempsDebut, v.Titre, NULL, NULL, NULL
 	FROM LectureFilm l1, Videos v
 	WHERE l1.IDContenu = v.IDContenu
@@ -548,7 +577,7 @@ BEGIN
 	FROM LectureEP l2, Videos v
 	WHERE l2.IDContenu = v.IDContenu
 	AND l2.IDClient = id_cli AND l2.IDProfil = id_prof
-	ORDER BY TempsDebut DESC;
+	ORDER BY DateLecture DESC;
 END;
 
 END info_profil;
