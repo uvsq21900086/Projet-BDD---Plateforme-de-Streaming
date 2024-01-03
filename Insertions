@@ -1,0 +1,126 @@
+DROP VIEW VIDEOS;
+DROP VIEW SERIES;
+DROP VIEW FILMS;
+DROP TABLE DEFINIT;
+DROP TABLE AVIS;
+DROP TABLE LECTUREEP;
+DROP TRIGGER FILM;
+DROP TABLE LECTUREFILM;
+DROP TRIGGER type_contenu;
+DROP TABLE Professionnel;
+DROP TABLE EPISODE;
+DROP TABLE CONTENU;
+DROP TABLE CATEGORIE;
+DROP TRIGGER mdp_profil;
+DROP TRIGGER nouveau_prof;
+DROP TRIGGER suppr_adulte;
+DROP TRIGGER profil_enf;
+DROP TRIGGER nb_profils;
+DROP TRIGGER age_prof;
+DROP TABLE PROFIL;*/
+DROP SEQUENCE id_prof;
+DROP TRIGGER nouveau_cli;
+DROP SEQUENCE ID_CLI;
+DROP TRIGGER age_cli;
+DROP TABLE CLIENT;
+DROP TABLE ABONNEMENT;
+------------------------------------------------------------------
+
+/* TABLE ABONNEMENT */
+
+-- insertion des données
+INSERT INTO Abonnement VALUES ('Essentiel', 0.00);
+INSERT INTO Abonnement VALUES ('Etudiant', 5.99);
+INSERT INTO Abonnement VALUES ('Standard', 9.49);
+INSERT INTO Abonnement VALUES ('Famille', 14.99);
+/
+------------------------------------------------------------------
+
+/* TABLE CLIENT */
+
+
+
+------------------------------------------------------------------
+
+/* TABLE PROFIL */
+    
+
+------------------------------------------------------------------
+
+/* TABLE CONTENU */
+
+
+------------------------------------------------------------------
+
+/* TABLE EPISODE */
+
+
+------------------------------------------------------------------
+
+/* TABLE PROFESSIONNEL */
+
+
+------------------------------------------------------------------
+
+/* TABLE CATEGORIE */
+
+-- insertion des données
+DECLARE
+    TYPE categorie_list IS TABLE OF VARCHAR2(30);
+    categories categorie_list := categorie_list(
+        'Action', 'Anime', 'Asie', 'Aventure', 'Comédie',
+        'Court-métrage', 'Cuisine et voyages', 'Documentaire',
+        'Drame', 'Droit', 'Emotions', 'Fantastique', 'Guerre',
+        'Histoire', 'Horreur', 'Indépendant', 'Jeunesse et Famille',
+        'LGBTQ+', 'Médical', 'Musique et Comédie musicale', 'Policier',
+        'Primé', 'Psychologique', 'Romance', 'Sciences et nature',
+        'Science-fiction', 'Sport', 'Stand-up et talk-show', 'Téléréalité', 'Thriller'
+    );
+BEGIN
+    FOR i IN 1..categories.COUNT LOOP
+        INSERT INTO Categorie(NomCategorie) VALUES (categories(i));
+    END LOOP;
+END;
+/
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+/* TABLE LECTUREFILM */
+
+
+------------------------------------------------------------------
+
+/* TABLE LECTUREEP */
+
+
+------------------------------------------------------------------
+
+/* TABLE AVIS */
+
+
+------------------------------------------------------------------
+
+/* TABLE PARTICIPE */
+
+
+------------------------------------------------------------------
+
+/* TABLE DEFINIT */
+
+------------------------------------------------------------------
+
+
+/*
+sql loader
+>> sqlload username/motdepasse fichier.ctl
+*/
+
+
+-- 1. tables
+-- 2. jeu de donnnées
+-- 3. requetes
+-- 4. DROITS
+-- 5. triggers
+-- 6. metadonnées
+-- 7. 

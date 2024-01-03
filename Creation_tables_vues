@@ -1,0 +1,217 @@
+/* TABLE ABONNEMENT */
+
+-- création de la table
+CREATE TABLE Abonnement (
+TypeAbonnement VARCHAR(9) PRIMARY KEY,
+Tarif NUMBER(4,2) NOT NULL
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE CLIENT */
+
+-- création de la table
+CREATE TABLE Client (
+IDClient NUMBER PRIMARY KEY,
+NomClient VARCHAR(60) NOT NULL,
+MotDePasseClient VARCHAR(30) NOT NULL,
+AgeClient DATE NOT NULL,
+AdresseMail VARCHAR(320) NOT NULL,
+DateInscription DATE NOT NULL,
+IBAN CHAR(33),
+DatePrelevement DATE,
+TypeAbonnement VARCHAR(9) NOT NULL REFERENCES Abonnement(TypeAbonnement)
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE PROFIL */
+
+-- création de la table
+CREATE TABLE Profil (
+IDClient NUMBER REFERENCES Client(IDClient) ON DELETE CASCADE,
+IDProfil NUMBER(1),
+Pseudo VARCHAR(20) NOT NULL,
+Photo BLOB,
+MotDePasseProfil CHAR(4),
+AgeProfil DATE NOT NULL,
+TypeProfil VARCHAR(6) NOT NULL CHECK(TypeProfil in ('Enfant', 'Adulte')),
+Langue VARCHAR(25) NOT NULL,
+SousTitres NUMBER(1) DEFAULT 0 NOT NULL CHECK(SousTitres between 0 and 1),
+PRIMARY KEY (IDClient, IDProfil)
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE CONTENU */
+
+-- création de la table
+CREATE TABLE Contenu (
+IDContenu NUMBER PRIMARY KEY,
+TitreContenu VARCHAR(60) NOT NULL,
+Classification VARCHAR(12) NOT NULL CHECK (Classification in ('Tous publics', '-10 ans', '-12 ans', '-16 ans', '-18 ans')),
+Description VARCHAR(200),
+Disponibilite VARCHAR(7) NOT NULL CHECK (Disponibilite in ('Gratuit', 'Payant')),
+LangueOrigine VARCHAR(25) NOT NULL,
+TypeContenu VARCHAR(5) NOT NULL CHECK (TypeContenu in ('Film', 'Série')),
+DateSortieFilm DATE,
+DureeFilm NUMBER(3),
+AnneeSerie NUMBER(4)
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE EPISODE */
+
+-- création de la table
+CREATE TABLE Episode (
+IDContenu NUMBER REFERENCES Contenu(IDContenu),
+NumSaison NUMBER(2),
+NumEpisode NUMBER(3),
+TitreEpisode VARCHAR(60) NOT NULL,
+DureeEpisode NUMBER(3) NOT NULL,
+DateSortieEpisode DATE NOT NULL,
+PRIMARY KEY (IDContenu, NumSaison, NumEpisode)
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE PROFESSIONNEL */
+
+-- création de la table
+CREATE TABLE Professionnel (
+IDPro NUMBER PRIMARY KEY,
+NomPro VARCHAR(30) NOT NULL,
+PrenomPro VARCHAR(30) NOT NULL,
+Nationalite VARCHAR(25),
+AgePro DATE
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE CATEGORIE */
+
+-- création de la table
+CREATE TABLE Categorie (
+NomCategorie VARCHAR(30) PRIMARY KEY
+);
+/
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+/* TABLE LECTUREFILM */
+
+-- création de la table
+CREATE TABLE LectureFilm ( 
+    IDClient NUMBER, 
+    IDProfil NUMBER(1), 
+    IDContenu NUMBER REFERENCES Contenu(IDContenu), 
+    DateLecture DATE,		    
+    TempsDebut DATE NOT NULL,	
+    TempsFin DATE NOT NULL,		
+    Langue VARCHAR(25) NOT NULL, 
+    SousTitres NUMBER(1) NOT NULL CHECK (SousTitres between 0 and 1), 
+    PRIMARY KEY (IDClient, IDProfil, IDContenu, DateLecture),
+    FOREIGN KEY (IDClient, IDProfil) REFERENCES Profil(IDClient, IDProfil) ON DELETE CASCADE
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE LECTUREEP */
+
+-- création de la table
+CREATE TABLE LectureEP (
+IDClient NUMBER,
+IDProfil NUMBER(1),
+IDContenu NUMBER,
+NumSaison NUMBER(2),
+NumEpisode NUMBER(3),
+DateLecture DATE,
+TempsDebut DATE NOT NULL,
+TempsFin DATE NOT NULL,
+Langue VARCHAR(25) NOT NULL,
+SousTitres NUMBER(1) NOT NULL CHECK (SousTitres between 0 and 1),
+PRIMARY KEY (IDClient, IDProfil, IDContenu, NumSaison, NumEpisode, DateLecture),
+FOREIGN KEY (IDClient, IDProfil) REFERENCES Profil(IDClient, IDProfil) ON DELETE CASCADE,
+FOREIGN KEY (IDContenu, NumSaison, NumEpisode) REFERENCES Episode(IDContenu, NumSaison, NumEpisode)
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE AVIS */
+
+-- création de la table
+CREATE TABLE Avis (
+IDClient NUMBER,
+IDProfil NUMBER(1),
+IDContenu NUMBER REFERENCES Contenu(IDContenu),
+Note NUMBER(2) CHECK (note between 1 and 10),
+Commentaire VARCHAR(1000),
+PRIMARY KEY (IDClient, IDProfil, IDContenu),
+FOREIGN KEY (IDClient, IDProfil) REFERENCES Profil(IDClient, IDProfil) ON DELETE CASCADE
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE PARTICIPE */
+
+-- création de la table
+CREATE TABLE Participe (
+IDContenu NUMBER REFERENCES Contenu(IDContenu),
+IDPro NUMBER REFERENCES Professionnel(IDPro),
+Profession VARCHAR(11) NOT NULL CHECK (Profession in ('Réalisateur', 'Acteur')),
+Role VARCHAR(10) NOT NULL CHECK (Role in ('Principal', 'Secondaire')),
+PRIMARY KEY (IDContenu, IDPro, Profession)
+);
+/
+
+------------------------------------------------------------------
+
+/* TABLE DEFINIT */
+
+-- création de la table
+CREATE TABLE Definit (
+IDContenu NUMBER REFERENCES Contenu(IDContenu),
+NomCategorie VARCHAR(30) REFERENCES Categorie(NomCategorie),
+PRIMARY KEY (IDContenu, NomCategorie)
+);
+/
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+/* VUES */
+
+-- vue des contenus de type Film
+CREATE VIEW Films AS
+SELECT *
+FROM Contenu
+WHERE TypeContenu = 'Film';
+/
+
+-- vue des contenus de type Série
+CREATE VIEW Series AS
+SELECT *
+FROM Contenu
+WHERE TypeContenu = 'Série';
+/
+
+-- vue des films et des épisodes
+CREATE VIEW Videos (IDContenu, DateSortie, Titre, NumSaison, NumEpisode, TitreEpisode) AS
+SELECT IDContenu, DateSortieFilm, TitreContenu, NULL, NULL, NULL
+FROM Films
+UNION
+SELECT e.IDContenu, e.DateSortieEpisode, s.TitreContenu, e.NumSaison, e.NumEpisode, e.TitreEpisode
+FROM Episode e, Series s
+WHERE e.IDContenu = s.IDContenu;
+/
