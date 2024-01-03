@@ -18,18 +18,16 @@ FROM (select a.IDClient, a.IDProfil, COUNT(*)
 GROUP BY IDClient;
 /
 
--- 3 PAS FINIE
-SELECT p.NomPro, p.PrenomPro
-
-FROM Professionnel p, Participe pa1, Participe pa2
-
-WHERE pa1.Profession = 'Acteur' AND pa2.Profession = 'Réalisateur'
-				AND pa2.Role = 'Principal'
-
+-- 3
+SELECT pr1.IDPro
+FROM Professionnel pr1, Professionnel pr2, Participe pa1, Participe pa2
+WHERE pa1.Profession = 'Acteur'
+AND pa2.Profession = 'Réalisateur' AND pa2.Role = 'Principal'
 AND pa1.IDContenu = pa2.IDContenu
-AND pa1.IDpro = p.IDPro
-
-HAVING COUNT(DISTINCT ) = 1;
+AND pa1.IDPro = pr1.IDPro AND pa2.IDPro = pr2.IDPro
+GROUP BY pr1.IDPro
+HAVING COUNT(DISTINCT pr2.IDPro) = 1;
+/
 
 -- 4
 SELECT pr2.NomPro, pr2.PrenomPro
@@ -69,6 +67,28 @@ WHERE temp1.IDContenu = a.IDContenu
 GROUP BY temp1.IDContenu;
 /
 
+-- 8
+CREATE OR REPLACE PROCEDURE temps_moyen_prof(id_cli in Client.IDClient%type, id_prof in Profil.IDProfil%type) IS
+	t	INTERVAL DAY TO SECOND;
+BEGIN
+SELECT NUMTODSINTERVAL(AVG(Somme), 'DAY') into t
+    
+FROM (select SUM(Temps) as Somme
+            
+        from (select TO_NUMBER(TO_CHAR(DateLecture, 'WW')) as Num_Semaine, (TempsFin - TempsDebut) as Temps
+            	from LectureFilm
+                where IDClient = id_cli and IDProfil = id_prof
+                and DateLecture > SYSDATE - NUMTOYMINTERVAL(6, 'month')
+                union
+                select TO_NUMBER(TO_CHAR(DateLecture, 'WW')) as Num_Semaine, (TempsFin - TempsDebut) as Temps
+                from LectureEP
+                where IDClient = id_cli and IDProfil = id_prof
+                and DateLecture > SYSDATE - NUMTOYMINTERVAL(6, 'month'))
+                        
+        group by Num_Semaine);
+END;
+/
+
 -- 9
 /* moyenne d'age des gens qui ont regardé tous les films ou séries  keira knightley a joué ou a réalisé
 personne (table profil) telle qu'il n'existe pas de contenu dans lequel keira est (tables contenu/participe) tel que la personne a pas vu (tables lecturefilm, lectureep) */
@@ -87,9 +107,26 @@ WHERE NOT EXISTS (select pa.IDContenu
 /
 
 -- 10
--- - on regarde toutes les séries qu'un profil a déjà regardé (au moins un épisode)
--- - on regarde si parmi les épisoes de ces séries il y en a dont la date de sortie est supérieure à sysdate
--- - on met tous ces épisodes dans une table avec le titre de la série, le numsaison, le numepisode, le titre de l'épisode et la date de sortie de l'épisode
+CREATE OR REPLACE PROCEDURE planning_ep(id_cli in Client.IDClient%type, id_prof in Profil.IDProfil%type) IS
+    d	Episode.DateSortieEpisode%type;
+    c	Episode.IDContenu%type;
+    t	Series.TitreContenu%type;
+    s	Episode.NumSaison%type;
+    n	Episode.NumEpisode%type;
+    e	Episode.TitreEpisode%type;
+BEGIN
+	SELECT DateSortieEpisode, IDContenu, TitreContenu, NumSaison, NumEpisode, TitreEpisode INTO d, c, t, s, n, e
+	FROM (select e.DateSortieEpisode, s.IDContenu, s.TitreContenu, e.NumSaison, e.NumEpisode, e.TitreEpisode
+    	from Series s, Episode e
+    	where e.DateSortieEpisode > SYSDATE
+    	and s.IDContenu = e.IDContenu
+    	ORDER BY e.DateSortieEpisode) temp
+    WHERE temp.IDContenu in (select IDContenu
+    						from LectureEP
+    						where IDClient = id_cli AND IDProfil = id_prof
+    						group by IDContenu);
+END;
+/
 
 -- 11
 SELECT d.NomCategorie, COUNT(*)
@@ -215,6 +252,23 @@ GROUP BY a.IDClient
 HAVING COUNT(a.IDContenu) >= 30;
 /
 
+-- 20
+SELECT NUMTODSINTERVAL(AVG(temp2.Temps_tot), 'DAY') as Temps_Moyen_Etudiant
+FROM (select temp1.IDCLI, SUM(temp1.Temps) as Temps_tot
+    from (select l1.IDClient as IDCLI, SUM(l1.TempsFin - l1.TempsDebut) as Temps
+    		from LectureFilm l1, Client c1
+    		where c1.TypeAbonnement = 'Etudiant'
+    		and l1.IDClient = c1.IDClient
+            group by l1.IDClient
+    		union
+    		select l2.IDClient as IDCLI, SUM(l2.TempsFin - l2.TempsDebut) as Temps
+    		from LectureEP l2, Client c2
+    		where c2.TypeAbonnement = 'Etudiant'
+    		and l2.IDClient = c2.IDClient
+        	group by l2.IDClient) temp1
+    group by temp1.IDCLI) temp2;
+/
+
 -- 22
 SELECT NomCategorie, COUNT(*)
 FROM Definit
@@ -229,6 +283,15 @@ FROM LectureFilm l FULL JOIN Films f ON l.IDContenu = f.IDContenu
 WHERE to_char(l.DateLecture) LIKE '%-jul-2023' AND ROWNUM = 1
 GROUP BY l.IDContenu
 ORDER BY 2 DESC;
+/
+
+-- 24
+SELECT NUMTODSINTERVAL(SUM(Temps), 'DAY')
+FROM (select l.IDContenu, l.DateLecture, (l.TempsFin - l.TempsDebut) as Temps
+		from Series s, LectureEP l
+		where s.AnneeSerie = 2007 AND l.DateLecture BETWEEN '01-may-2016' AND '31-jan-2018'
+		and s.IDContenu = l.IDContenu)
+GROUP BY IDContenu;
 /
 
 -- 25

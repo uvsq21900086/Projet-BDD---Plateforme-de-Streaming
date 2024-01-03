@@ -1,7 +1,7 @@
 /* TABLE ABONNEMENT */
 
 -- création de la table
-CREATE TABLE Abonnement (
+CREATE OR REPLACE TABLE Abonnement (
 TypeAbonnement VARCHAR(9) PRIMARY KEY,
 Tarif NUMBER(4,2) NOT NULL
 );
@@ -12,7 +12,7 @@ Tarif NUMBER(4,2) NOT NULL
 /* TABLE CLIENT */
 
 -- création de la table
-CREATE TABLE Client (
+CREATE OR REPLACE TABLE Client (
 IDClient NUMBER PRIMARY KEY,
 NomClient VARCHAR(60) NOT NULL,
 MotDePasseClient VARCHAR(30) NOT NULL,
@@ -20,7 +20,7 @@ AgeClient DATE NOT NULL,
 AdresseMail VARCHAR(320) NOT NULL,
 DateInscription DATE NOT NULL,
 IBAN CHAR(33),
-DatePrelevement DATE,
+DatePrelevement DATE CHECK (TO_NUMBER(TO_CHAR(DatePrelevement, 'DD')) <= 28),
 TypeAbonnement VARCHAR(9) NOT NULL REFERENCES Abonnement(TypeAbonnement)
 );
 /
@@ -30,9 +30,9 @@ TypeAbonnement VARCHAR(9) NOT NULL REFERENCES Abonnement(TypeAbonnement)
 /* TABLE PROFIL */
 
 -- création de la table
-CREATE TABLE Profil (
+CREATE OR REPLACE TABLE Profil (
 IDClient NUMBER REFERENCES Client(IDClient) ON DELETE CASCADE,
-IDProfil NUMBER(1),
+IDProfil NUMBER(2),
 Pseudo VARCHAR(20) NOT NULL,
 Photo BLOB,
 MotDePasseProfil CHAR(4),
@@ -49,7 +49,7 @@ PRIMARY KEY (IDClient, IDProfil)
 /* TABLE CONTENU */
 
 -- création de la table
-CREATE TABLE Contenu (
+CREATE OR REPLACE TABLE Contenu (
 IDContenu NUMBER PRIMARY KEY,
 TitreContenu VARCHAR(60) NOT NULL,
 Classification VARCHAR(12) NOT NULL CHECK (Classification in ('Tous publics', '-10 ans', '-12 ans', '-16 ans', '-18 ans')),
@@ -68,7 +68,7 @@ AnneeSerie NUMBER(4)
 /* TABLE EPISODE */
 
 -- création de la table
-CREATE TABLE Episode (
+CREATE OR REPLACE TABLE Episode (
 IDContenu NUMBER REFERENCES Contenu(IDContenu),
 NumSaison NUMBER(2),
 NumEpisode NUMBER(3),
@@ -84,7 +84,7 @@ PRIMARY KEY (IDContenu, NumSaison, NumEpisode)
 /* TABLE PROFESSIONNEL */
 
 -- création de la table
-CREATE TABLE Professionnel (
+CREATE OR REPLACE TABLE Professionnel (
 IDPro NUMBER PRIMARY KEY,
 NomPro VARCHAR(30) NOT NULL,
 PrenomPro VARCHAR(30) NOT NULL,
@@ -98,7 +98,7 @@ AgePro DATE
 /* TABLE CATEGORIE */
 
 -- création de la table
-CREATE TABLE Categorie (
+CREATE OR REPLACE TABLE Categorie (
 NomCategorie VARCHAR(30) PRIMARY KEY
 );
 /
@@ -109,9 +109,9 @@ NomCategorie VARCHAR(30) PRIMARY KEY
 /* TABLE LECTUREFILM */
 
 -- création de la table
-CREATE TABLE LectureFilm ( 
+CREATE OR REPLACE TABLE LectureFilm ( 
     IDClient NUMBER, 
-    IDProfil NUMBER(1), 
+    IDProfil NUMBER(2), 
     IDContenu NUMBER REFERENCES Contenu(IDContenu), 
     DateLecture DATE,		    
     TempsDebut DATE NOT NULL,	
@@ -128,9 +128,9 @@ CREATE TABLE LectureFilm (
 /* TABLE LECTUREEP */
 
 -- création de la table
-CREATE TABLE LectureEP (
+CREATE OR REPLACE TABLE LectureEP (
 IDClient NUMBER,
-IDProfil NUMBER(1),
+IDProfil NUMBER(2),
 IDContenu NUMBER,
 NumSaison NUMBER(2),
 NumEpisode NUMBER(3),
@@ -150,9 +150,9 @@ FOREIGN KEY (IDContenu, NumSaison, NumEpisode) REFERENCES Episode(IDContenu, Num
 /* TABLE AVIS */
 
 -- création de la table
-CREATE TABLE Avis (
+CREATE OR REPLACE TABLE Avis (
 IDClient NUMBER,
-IDProfil NUMBER(1),
+IDProfil NUMBER(2),
 IDContenu NUMBER REFERENCES Contenu(IDContenu),
 Note NUMBER(2) CHECK (note between 1 and 10),
 Commentaire VARCHAR(1000),
@@ -166,7 +166,7 @@ FOREIGN KEY (IDClient, IDProfil) REFERENCES Profil(IDClient, IDProfil) ON DELETE
 /* TABLE PARTICIPE */
 
 -- création de la table
-CREATE TABLE Participe (
+CREATE OR REPLACE TABLE Participe (
 IDContenu NUMBER REFERENCES Contenu(IDContenu),
 IDPro NUMBER REFERENCES Professionnel(IDPro),
 Profession VARCHAR(11) NOT NULL CHECK (Profession in ('Réalisateur', 'Acteur')),
@@ -180,7 +180,7 @@ PRIMARY KEY (IDContenu, IDPro, Profession)
 /* TABLE DEFINIT */
 
 -- création de la table
-CREATE TABLE Definit (
+CREATE OR REPLACE TABLE Definit (
 IDContenu NUMBER REFERENCES Contenu(IDContenu),
 NomCategorie VARCHAR(30) REFERENCES Categorie(NomCategorie),
 PRIMARY KEY (IDContenu, NomCategorie)

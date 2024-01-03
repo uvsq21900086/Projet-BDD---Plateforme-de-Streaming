@@ -28,17 +28,23 @@ BEGIN
 END;
 /
 
--- procédure pour supprimer un client, ses profils et les historiques si le compte est inactif depuis 12 mois
-/*
-CREATE OR REPLACE PROCEDURE inactivite_client(id in Client.IDClient%type) IS
+-- procédure pour supprimer un client, ses profils et les historiques si le compte est inactif depuis 12 mois, ou pour mettre à jour la date de prélèvement
+CREATE OR REPLACE PROCEDURE date_prelev(id_cli in Client.IDClient%type) IS
+    d	Client.DatePrelevement%type;
 BEGIN
-	if date dernier prelevement remonte à 12 mois ou plus, supprimer le compte
-END;
-        -- ===> A FAIRE
-*/
+	SELECT DatePrelevement into d
+    FROM Client
+    WHERE IDClient = id_cli;
 
--- trigger si le client veut changer d'abonnement
---  ...
+	IF ADD_MONTHS(d, 12) <= SYSDATE THEN
+        DELETE FROM Client WHERE IDClient = id_cli;
+	END IF;
+
+	IF ADD_MONTHS(d, 1) = SYSDATE THEN
+        UPDATE Client SET DatePrelevement = SYSDATE WHERE IDClient = id_cli;
+	END IF;
+END;
+/
 
 ------------------------------------------------------------------
 
@@ -125,15 +131,9 @@ END;
 CREATE SEQUENCE id_prof 
 start with 1 
 increment by 1;
-	-- => pas sûr qu'on mette ça, voir avec la procédure d'après
 
 -- trigger pour la séquence IDProfil -- ON EST PAS SURS DE CA
 CREATE OR REPLACE TRIGGER nouveau_prof before insert on Profil for each row
-DECLARE
-	cursor c1 is select *
-				from Profil
-				where IDClient = :new.IDClient
-				order by IDProfil ASC;
 BEGIN
 	:new.IDProfil := id_prof.nextval;
 END;
