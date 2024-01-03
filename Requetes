@@ -55,7 +55,19 @@ ORDER BY AVG(a.Note) DESC;
 /
 
 -- 7
--- aka la série la mieux notée par les 25-30 ans en 2023
+SELECT temp1.IDContenu, AVG(a.Note)
+FROM (select l.IDContenu
+	from LectureEP l, Profil p
+	where to_char(l.DateLecture) LIKE '%2023'
+	and TRUNC(months_between(SYSDATE, p.AgeProfil)/12) between 25 and 30
+	and l.IDClient = p.IDClient and l.IDProfil = p.IDProfil) temp1 
+INNER JOIN (select a.IDContenu
+			from Avis a, Profil p
+			where TRUNC(months_between(SYSDATE, p.AgeProfil)/12) between 25 and 30
+			and a.IDClient = p.IDClient and a.IDProfil = p.IDProfil) temp2 ON temp1.IDContenu = temp2.IDContenu, Avis a
+WHERE temp1.IDContenu = a.IDContenu
+GROUP BY temp1.IDContenu;
+/
 
 -- 9
 /* moyenne d'age des gens qui ont regardé tous les films ou séries  keira knightley a joué ou a réalisé
