@@ -2,12 +2,23 @@
 
 -- afficher les informations d'un compte client
 CREATE OR REPLACE PROCEDURE afficher_compte(id_cli in Client.IDClient%type) IS
+    v_IDClient			Client.IDClient%TYPE;
+    v_NomClient			Client.NomClient%TYPE;
+    v_MotDePasse		Client.MotDePasseClient%TYPE;
+    v_Age 				Client.AgeClient%TYPE;
+    v_AdresseMail 		Client.AdresseMail%TYPE;
+    v_DateInscription 	Client.DateInscription%TYPE;
+    v_IBAN 				Client.IBAN%TYPE;
+    v_DatePrelevement 	Client.DatePrelevement%TYPE;
+    v_TypeAbonnement 	Client.TypeAbonnement%TYPE;
 BEGIN
-	SELECT *
-	FROM Client
-	WHERE IDClient = id_cli;
+    SELECT IDCLIENT, NOMCLIENT, MOTDEPASSECLIENT, AGECLIENT, ADRESSEMAIL, DATEINSCRIPTION, IBAN, DATEPRELEVEMENT, TYPEABONNEMENT
+    INTO v_IDClient, v_NomClient, v_MotDePasse, v_Age, v_AdresseMail, v_DateInscription, v_IBAN, v_DatePrelevement, v_TypeAbonnement
+    FROM Client c
+    WHERE IDClient = id_cli;
 END;
 /
+
 -- execute afficher_compte(IDClient);
 
 -- package pour afficher les informations d'un profil et son historique
