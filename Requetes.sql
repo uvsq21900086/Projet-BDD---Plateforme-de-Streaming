@@ -7,6 +7,17 @@ WHERE pr.NomPro = 'Norris' AND pr.PrenomPro = 'Chuck' AND pa.Profession = 'Acteu
 AND pa.IDContenu = c.IDContenu AND pr.IDPro = pa.IDPro;
 /
 
+-- 2
+SELECT IDClient
+FROM (select a.IDClient, a.IDProfil, COUNT(*)
+	from Avis a, Films f
+	where Note is not null and Note > 5
+	and a.IDContenu = f.IDContenu
+	group by (a.IDClient, a.IDProfil)
+	having count(*) > 10)
+GROUP BY IDClient;
+/
+
 -- 3 PAS FINIE
 SELECT p.NomPro, p.PrenomPro
 
@@ -34,27 +45,49 @@ FROM Client
 WHERE TypeAbonnement = 'Etudiant';
 /
 
+-- 6
+SELECT a.IDContenu, AVG(a.Note) as Note_Moyenne
+FROM Films f, Avis a
+WHERE EXTRACT(year from f.DateSortieFilm) = 2022 AND a.Note IS NOT NULL
+AND f.IDContenu = a.IDContenu
+GROUP BY a.IDContenu
+ORDER BY AVG(a.Note) DESC;
+/
+
+-- 7
+-- aka la série la mieux notée par les 25-30 ans en 2023
+
 -- 9
 /* moyenne d'age des gens qui ont regardé tous les films ou séries  keira knightley a joué ou a réalisé
 personne (table profil) telle qu'il n'existe pas de contenu dans lequel keira est (tables contenu/participe) tel que la personne a pas vu (tables lecturefilm, lectureep) */
 
-SELECT AVG(months_between(SYSDATE, AgeProfil)/12) as Age_Moyen
+SELECT AVG(TRUNC(months_between(SYSDATE, AgeProfil)/12)) as Age_Moyen
 FROM Profil p
 WHERE NOT EXISTS (select pa.IDContenu
-		from Participe pa, Professionnel pr
-		where pr.NomPro = 'Knightley' and pr.PrenomPro = 'Keira'
-		and pa.IDPro = pr.IDPro
-		and not exists (select *
-				from LectureFilm f, LectureEP e
-				where f.IDContenu = pa.IDContenu and e.IDContenu = pa.IDContenu
-				and f.IDClient = p.IDClient and e.IDClient = p.IDClient
-				and f.IDProfil = p.IDProfil and e.IDProfil = p.IDProfil));
+				from Participe pa, Professionnel pr
+				where pr.NomPro = 'Knightley' and pr.PrenomPro = 'Keira'
+				and pa.IDPro = pr.IDPro
+				and not exists (select *
+								from LectureFilm f, LectureEP e
+								where f.IDContenu = pa.IDContenu and e.IDContenu = pa.IDContenu
+								and f.IDClient = p.IDClient and e.IDClient = p.IDClient
+								and f.IDProfil = p.IDProfil and e.IDProfil = p.IDProfil));
 /
 
 -- 10
 -- - on regarde toutes les séries qu'un profil a déjà regardé (au moins un épisode)
 -- - on regarde si parmi les épisoes de ces séries il y en a dont la date de sortie est supérieure à sysdate
 -- - on met tous ces épisodes dans une table avec le titre de la série, le numsaison, le numepisode, le titre de l'épisode et la date de sortie de l'épisode
+
+-- 11
+SELECT d.NomCategorie, COUNT(*)
+FROM Participe pa, Professionnel pr, Definit d
+WHERE pr.NomPro = 'Tartempion' AND pa.Profession = 'Réalisateur'
+AND pa.IDPro = pr.IDPro AND d.IDContenu = pa.IDContenu
+AND ROWNUM = 1
+GROUP BY d.NomCategorie
+ORDER BY d.NomCategorie DESC;
+/
 
 -- 12
 SELECT cl.TypeAbonnement, COUNT(*)
@@ -69,11 +102,9 @@ GROUP BY TypeAbonnement;
 -- 13
 DECLARE
     n	int := 1;
-	m	int := 1;
 	f	int;
 	s	int;
 	a	int;
-	b	int;
 BEGIN
     SELECT COUNT(p.IDProfil) into f
     FROM Client c, Profil p
@@ -91,11 +122,11 @@ BEGIN
 	FROM Client c, Profil p
     WHERE c.TypeAbonnement = 'Standard' AND p.TypeProfil = 'Enfant'
     AND c.IDClient = p.IDClient;
-	SELECT COUNT(DISTINCT p.IDClient) into b
+	SELECT COUNT(DISTINCT p.IDClient) into a
 	FROM Client c, Profil p
     WHERE c.TypeAbonnement = 'Standard' AND p.TypeProfil = 'Enfant'
     AND c.IDClient = p.IDClient;
-    IF b != 0 THEN n := b;
+    IF a != 0 THEN n := a;
     END IF;
 	s := s/n;
 
@@ -119,10 +150,24 @@ END;
 /
 
 -- 15
-SELECT AVG(months_between(SYSDATE, pr.AgePro)/12) as Age_Moyen
+SELECT AVG(TRUNC(months_between(SYSDATE, pr.AgePro)/12)) as Age_Moyen
 FROM Participe pa, Professionnel pr, Films f
 WHERE f.TitreContenu = 'Avengers' AND pa.Profession = 'Acteur'
 AND pa.IDPro = pr.IDPro AND pa.IDContenu = f.IDContenu;
+/
+
+-- 16
+SELECT p.IDClient, p.IDProfil, l.IDContenu, f.TitreContenu
+FROM Profil p, LectureFilm l, Films f
+WHERE p.AgeProfil >= (SYSDATE - NUMTOYMINTERVAL(25, 'year'))
+AND p.IDClient = l.IDClient AND p.IDProfil = l.IDProfil
+AND l.IDContenu = f.IDContenu
+AND l.IDContenu in (select d.IDContenu
+					from Definit d, Participe pa, Professionnel pr
+					where d.NomCategorie = 'Guerre'
+					and pr.NomPro = 'Butler' and pr.PrenomPro = 'Gerard'
+					and pa.Profession = 'Acteur'
+					and d.IDContenu = pa.IDContenu and pa.IDPro = pr.IDPro);
 /
 
 -- 17
@@ -138,12 +183,12 @@ AND pa.IDContenu = f.IDContenu;
 SELECT IDClient, IDProfil, Pseudo
 FROM Profil
 WHERE NOT EXISTS (select *
-		from Films
-		where not exists (select *
-				from LectureFilm
-				where LectureFilm.IDClient = Profil.IDClient
-				and LectureFilm.IDProfil = Profil.IDProfil
-				and LectureFilm.IDContenu = Films.IDContenu));
+				from Films
+				where not exists (select *
+								from LectureFilm
+								where LectureFilm.IDClient = Profil.IDClient
+								and LectureFilm.IDProfil = Profil.IDProfil
+								and LectureFilm.IDContenu = Films.IDContenu));
 /
 
 -- 19
@@ -158,12 +203,21 @@ GROUP BY a.IDClient
 HAVING COUNT(a.IDContenu) >= 30;
 /
 
+-- 22
+SELECT NomCategorie, COUNT(*)
+FROM Definit
+WHERE ROWNUM = 1
+GROUP BY NomCategorie
+ORDER BY COUNT(*) DESC;
+/
+
 -- 23
 SELECT l.IDContenu, COUNT(DISTINCT l.IDContenu)
 FROM LectureFilm l FULL JOIN Films f ON l.IDContenu = f.IDContenu
 WHERE to_char(l.DateLecture) LIKE '%-jul-2023' AND ROWNUM = 1
 GROUP BY l.IDContenu
 ORDER BY 2 DESC;
+/
 
 -- 25
 SELECT co.TitreContenu, a.Commentaire
@@ -172,15 +226,3 @@ WHERE cl.NomClient = 'Amallah' AND p.Pseudo = 'Third-Cannon'
 AND cl.IDClient = p.IDClient AND p.IDClient = a.IDClient AND p.IDProfil = a.IDProfil
 AND a.IDContenu = co.IDContenu;
 /
-
--- REVOIR TOUS LES COUNT() PARCE QUE JE COMPRENDS PLUS COMMENT CA S'UTILISE
-
-
-
-
-
-
-
-
-
-
