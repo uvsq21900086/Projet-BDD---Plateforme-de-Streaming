@@ -22,7 +22,7 @@ CREATE TABLE Client (
 IDClient NUMBER PRIMARY KEY,
 NomClient VARCHAR(60) NOT NULL,
 MotDePasseClient VARCHAR(30) NOT NULL,
-AgeClient DATE NOT NULL CHECK (AgeClient between '01-jan-1900' and SYSDATE - NUMTOYMINTERVAL(18, 'year')),
+AgeClient DATE NOT NULL,
 AdresseMail VARCHAR(320) NOT NULL,
 DateInscription DATE NOT NULL,
 IBAN CHAR(33),
@@ -39,9 +39,17 @@ start with 1;
 -- trigger pour la séquence ClientID
 CREATE OR REPLACE TRIGGER nouveau_cli before insert on Client for each row
 BEGIN
-    :new.CommandeID := id_cli.nextval;
+    :new.IDClient := id_cli.nextval;
 END;
 /
+
+-- trigger pour vérifier que l'âge d'un client est supérieur à 18 ans
+CREATE OR REPLACE TRIGGER age_cli before insert on Client for each row
+BEGIN
+	IF :new.AgeClient > SYSDATE - NUMTOYMINTERVAL(18, 'year')
+		THEN raise_application_error(-20010, 'Lâge dun client doit être supérieur à 18 ans.');
+	END IF;
+END;
 
 -- procédure pour supprimer un client, ses profils et les historiques si le compte est inactif depuis 12 mois
 CREATE OR REPLACE PROCEDURE inactivite_client(id in Client.IDClient%type) IS
@@ -56,34 +64,48 @@ END;
 -- création de la table
 CREATE TABLE Profil (
 IDClient NUMBER REFERENCES Client(IDClient) ON DELETE CASCADE,
-IDProfil NUMBER(1), => séquence
+IDProfil NUMBER(1),
 Pseudo VARCHAR(20) NOT NULL,
 Photo BLOB,
 MotDePasseProfil CHAR(4),
-AgeProfil DATE NOT NULL CHECK (AgeProfil between '01-jan-1900' and SYSDATE - NUMTOYMINTERVAL(1, 'year')),
+AgeProfil DATE NOT NULL,
 TypeProfil VARCHAR(6) NOT NULL CHECK (TypeProfil in ('Enfant', 'Adulte')),
 Langue VARCHAR(25) NOT NULL,
-SousTitres NUMBER(1) NOT NULL CHECK (SousTitres between 0 and 1) DEFAULT 0,
+SousTitres NUMBER(1) DEFAULT 0 NOT NULL CHECK (SousTitres between 0 and 1),
 PRIMARY KEY (IDClient, IDProfil)
 );
+/
+
+-- trigger pour vérifier que l'âge d'un profil est compris entre 1 et 122 ans
+CREATE OR REPLACE TRIGGER age_prof before insert on Profil for each row
+BEGIN
+	IF :new.AgeProfil > SYSDATE - NUMTOYMINTERVAL(1, 'year') OR :new.AgeProfil < SYSDATE - NUMTOYMINTERVAL(122, 'year')
+		THEN raise_application_error(-20020, 'Lâge dun profil doit être compris entre 1 an et 122 ans.');
+	END IF;
+END;
 /
 
 -- trigger pour vérifier que le nombre de profils ne dépasse pas le nombre maximum autorisé par l'abonnement
 CREATE OR REPLACE TRIGGER nb_profils before insert on Profil for each row
 DECLARE
 	n	int;
+	t	Client.TypeAbonnement%type;
 BEGIN
 	select count(*) into n
 	from Profil
 	where IDClient = :new.IDClient;
+
+	select TypeAbonnement into t
+	from Client
+	where IDClient = :new.IDClient;
 	
-	IF :new.TypeAbonnement in ('Essentiel', 'Etudiant') AND n >= 1
+	IF t in ('Essentiel', 'Etudiant') AND n >= 1
     	THEN raise_application_error(-20001, 'Impossible de créer un nouveau profil : 1 profil maximum autorisé pour le type dabonnement.');
     END IF;
-	IF :new.TypeAbonnement = 'Standard' AND n >= 2
+	IF t = 'Standard' AND n >= 2
 		THEN raise_application_error(-20002, 'Impossible de créer un nouveau profil : 2 profils maximum autorisés pour le type dabonnement.');
 	END IF;
-	IF :new.TypeAbonnement = 'Famille' AND n >=4
+	IF t = 'Famille' AND n >= 4
 		THEN raise_application_error(-20003, 'Impossible de créer un nouveau profil : 4 profils maximum autorisés pour le type dabonnement.');
 	END IF;
 END;
@@ -125,7 +147,7 @@ BEGIN
 		and TypeProfil = 'Adulte';
 		
 		IF a = 0
-			THEN raise_application_error(-20005)
+			THEN raise_application_error(-20005, 'Impossible de supprimer le profil : 1 profil Adulte minimum est requis.');
 			  	  
 		END IF;
 	END IF;
@@ -146,13 +168,14 @@ DECLARE
 				where IDClient = :new.IDClient
 				order by IDProfil ASC;
 BEGIN
-        -- ===> ALERTE PROBLEME	
+        -- - 
 END;
+/
 
 -- trigger pour vérifier que le MotDePasseProfil est conforme
 CREATE OR REPLACE TRIGGER mdp_profil before insert on Profil for each row
 BEGIN
-	IF (:new.MotDePasseProfil NOT NULL) AND ((LENGTH(:new.MotDePasseProfil)) != 4 OR (VALIDATE_CONVERSION(:new.MotDePasseProfil AS NUMBER) = 0))
+	IF (:new.MotDePasseProfil IS NOT NULL) AND ((LENGTH(:new.MotDePasseProfil)) != 4 OR (VALIDATE_CONVERSION(:new.MotDePasseProfil AS NUMBER) = 0))
 		THEN raise_application_error(-20006, 'Le mot de passe saisi nest pas conforme : veuillez entrer un code à 4 chiffres.');
 	END IF;
 END;
@@ -225,8 +248,17 @@ IDPro NUMBER PRIMARY KEY,
 NomPro VARCHAR(30) NOT NULL,
 PrenomPro VARCHAR(30) NOT NULL,
 Nationalite VARCHAR(25),
-AgePro DATE CHECK (AgePro between '01-jan-1900' and SYSDATE - NUMTOYMINTERVAL(1, 'year'))
+AgePro DATE
 );
+/
+
+-- trigger pour vérifier que l'âge d'un professionnel est compris entre 1 et 122 ans
+CREATE OR REPLACE TRIGGER age_pro before insert on Professionnel for each row
+BEGIN
+	IF :new.AgePro > SYSDATE - NUMTOYMINTERVAL(1, 'year') OR :new.AgePro < SYSDATE - NUMTOYMINTERVAL(122, 'year')
+		THEN raise_application_error(-20020, 'Lâge dun professionnel doit être compris entre 1 an et 122 ans.');
+	END IF;
+END;
 /
 ------------------------------------------------------------------
 
@@ -239,36 +271,36 @@ NomCategorie VARCHAR(30) PRIMARY KEY
 /
 
 -- insertion des données
-INSERT INTO Abonnement VALUES ('Action');
-INSERT INTO Abonnement VALUES ('Anime');
-INSERT INTO Abonnement VALUES ('Asie');
-INSERT INTO Abonnement VALUES ('Aventure');
-INSERT INTO Abonnement VALUES ('Comédie');
-INSERT INTO Abonnement VALUES ('Court-métrage');
-INSERT INTO Abonnement VALUES ('Cuisine et voyages');
-INSERT INTO Abonnement VALUES ('Documentaire');
-INSERT INTO Abonnement VALUES ('Drame');
-INSERT INTO Abonnement VALUES ('Droit');
-INSERT INTO Abonnement VALUES ('Emotions');
-INSERT INTO Abonnement VALUES ('Fantastique');
-INSERT INTO Abonnement VALUES ('Guerre');
-INSERT INTO Abonnement VALUES ('Histoire');
-INSERT INTO Abonnement VALUES ('Horreur');
-INSERT INTO Abonnement VALUES ('Indépendant');
-INSERT INTO Abonnement VALUES ('Jeunesse et Famille');
-INSERT INTO Abonnement VALUES ('LGBTQ+');
-INSERT INTO Abonnement VALUES ('Médical');
-INSERT INTO Abonnement VALUES ('Musique et Comédie musicale');
-INSERT INTO Abonnement VALUES ('Policier');
-INSERT INTO Abonnement VALUES ('Primé');
-INSERT INTO Abonnement VALUES ('Psychologique');
-INSERT INTO Abonnement VALUES ('Romance');
-INSERT INTO Abonnement VALUES ('Sciences et nature');
-INSERT INTO Abonnement VALUES ('Science-fiction');
-INSERT INTO Abonnement VALUES ('Sport');
-INSERT INTO Abonnement VALUES ('Stand-up et talk-show');
-INSERT INTO Abonnement VALUES ('Téléréalité');
-INSERT INTO Abonnement VALUES ('Thriller');
+INSERT INTO Categorie VALUES ('Action');
+INSERT INTO Categorie VALUES ('Anime');
+INSERT INTO Categorie VALUES ('Asie');
+INSERT INTO Categorie VALUES ('Aventure');
+INSERT INTO Categorie VALUES ('Comédie');
+INSERT INTO Categorie VALUES ('Court-métrage');
+INSERT INTO Categorie VALUES ('Cuisine et voyages');
+INSERT INTO Categorie VALUES ('Documentaire');
+INSERT INTO Categorie VALUES ('Drame');
+INSERT INTO Categorie VALUES ('Droit');
+INSERT INTO Categorie VALUES ('Emotions');
+INSERT INTO Categorie VALUES ('Fantastique');
+INSERT INTO Categorie VALUES ('Guerre');
+INSERT INTO Categorie VALUES ('Histoire');
+INSERT INTO Categorie VALUES ('Horreur');
+INSERT INTO Categorie VALUES ('Indépendant');
+INSERT INTO Categorie VALUES ('Jeunesse et Famille');
+INSERT INTO Categorie VALUES ('LGBTQ+');
+INSERT INTO Categorie VALUES ('Médical');
+INSERT INTO Categorie VALUES ('Musique et Comédie musicale');
+INSERT INTO Categorie VALUES ('Policier');
+INSERT INTO Categorie VALUES ('Primé');
+INSERT INTO Categorie VALUES ('Psychologique');
+INSERT INTO Categorie VALUES ('Romance');
+INSERT INTO Categorie VALUES ('Sciences et nature');
+INSERT INTO Categorie VALUES ('Science-fiction');
+INSERT INTO Categorie VALUES ('Sport');
+INSERT INTO Categorie VALUES ('Stand-up et talk-show');
+INSERT INTO Categorie VALUES ('Téléréalité');
+INSERT INTO Categorie VALUES ('Thriller');
 /
         -- ==> est-ce qu'il y a moyen de faire une boucle sur une liste ??
 ------------------------------------------------------------------
@@ -278,15 +310,16 @@ INSERT INTO Abonnement VALUES ('Thriller');
 
 -- création de la table
 CREATE TABLE LectureFilm (
-IDClient NUMBER REFERENCES Profil(IDClient) ON DELETE CASCADE,
-IDProfil NUMBER REFERENCES Profil(IDProfil) ON DELETE CASCADE,
+IDClient NUMBER,
+IDProfil NUMBER(1),
 IDContenu NUMBER REFERENCES Contenu(IDContenu),
 DateLecture DATE,		    -- format yyyy:mm:dd ex: je commence à regarder mon épisode (ou je commence ma session) le 12/04/2022 donc 2022:04:12
 TempsDebut DATE NOT NULL,	-- format hh:mm:ss ex: je commence mon épisode du début donc 00:00:00
 TempsFin DATE NOT NULL,		-- format hh:mm:ss ex: j'arrête mon épisode à la minute 00:15:07 
 Langue VARCHAR(25) NOT NULL,
 SousTitres NUMBER(1) NOT NULL CHECK (SousTitres between 0 and 1),
-PRIMARY KEY (IDClient, IDProfil, IDContenu, DateLecture)
+PRIMARY KEY (IDClient, IDProfil, IDContenu, DateLecture),
+FOREIGN KEY (IDClient, IDProfil) REFERENCES Profil(IDClient, IDProfil) ON DELETE CASCADE
 );
 /
 
@@ -303,7 +336,7 @@ tandis que si on regarde la première moitié un jour et l'autre moitié le lend
 */
 
 -- trigger pour vérifier que le contenu visionné n'est pas un épisode de série
-CREATE OR REPLACE TRIGGER film before insert on LectureFilm
+CREATE OR REPLACE TRIGGER film before insert on LectureFilm for each row
 DECLARE
 	t	Contenu.TypeContenu%type;
 BEGIN
@@ -317,7 +350,7 @@ END;
 /
 
 -- trigger pour mettre à jour la colonne SousTitres en fonction de la valeur dans LectureFilm
-CREATE OR REPLACE TRIGGER soustitres_film after insert or update on LectureFilm
+CREATE OR REPLACE TRIGGER soustitres_film after insert or update on LectureFilm for each row
 BEGIN
 	UPDATE Profil
 	SET SousTitres = :new.SousTitres
@@ -326,7 +359,7 @@ END;
 /
 
 -- trigger pour vérifier qu'un profil Enfant ne visionne pas de film dont la classification est inadaptée
-CREATE OR REPLACE TRIGGER lectenf_film before insert on LectureFilm
+CREATE OR REPLACE TRIGGER lectenf_film before insert on LectureFilm for each row
 DECLARE
 	t	Profil.TypeProfil%type;
 	cl	Contenu.Classification%type;
@@ -347,7 +380,7 @@ END;
 /
 
 -- trigger pour vérifier que le profil d'un compte Essentiel ne visionne pas de contenu payant
-CREATE OR REPLACE TRIGGER dispo_film before insert on LectureFilm
+CREATE OR REPLACE TRIGGER dispo_film before insert on LectureFilm for each row
 DECLARE
 	a	Abonnement.TypeAbonnement%type;
 	d	Contenu.Disponibilite%type;
@@ -371,22 +404,24 @@ END;
 
 -- création de la table
 CREATE TABLE LectureEP (
-IDClient NUMBER REFERENCES Profil(IDClient) ON DELETE CASCADE,
-IDProfil NUMBER REFERENCES Profil(IDProfil) ON DELETE CASCADE,
-IDContenu NUMBER REFERENCES Episode(IDContenu),
-NumSaison NUMBER(2) REFERENCES Episode(NumSaison),
-NumEpisode NUMBER(3) REFERENCES Episode(NumEpisode),
+IDClient NUMBER,
+IDProfil NUMBER(1),
+IDContenu NUMBER,
+NumSaison NUMBER(2),
+NumEpisode NUMBER(3),
 DateLecture DATE,
 TempsDebut DATE NOT NULL,
 TempsFin DATE NOT NULL,
 Langue VARCHAR(25) NOT NULL,
 SousTitres NUMBER(1) NOT NULL CHECK (SousTitres between 0 and 1),
-PRIMARY KEY (IDClient, IDProfil, IDContenu, NumSaison, NumEpisode, DateLecture)
+PRIMARY KEY (IDClient, IDProfil, IDContenu, NumSaison, NumEpisode, DateLecture),
+FOREIGN KEY (IDClient, IDProfil) REFERENCES Profil(IDClient, IDProfil) ON DELETE CASCADE,
+FOREIGN KEY (IDContenu, NumSaison, NumEpisode) REFERENCES Episode(IDContenu, NumSaison, NumEpisode)
 );
 /
 
 -- trigger pour vérifier que le contenu visionné n'est pas un film
-CREATE OR REPLACE TRIGGER episode before insert on LectureEP
+CREATE OR REPLACE TRIGGER episode before insert on LectureEP for each row
 DECLARE
 	t	Contenu.TypeContenu%type;
 BEGIN
@@ -400,7 +435,7 @@ END;
 /
 
 -- trigger pour mettre à jour la colonne SousTitres en fonction de la valeur dans LectureEP
-CREATE OR REPLACE TRIGGER soustitres_ep after insert or update on LectureEP
+CREATE OR REPLACE TRIGGER soustitres_ep after insert or update on LectureEP for each row
 BEGIN
 	UPDATE Profil
 	SET SousTitres = :new.SousTitres
@@ -409,7 +444,7 @@ END;
 /
 
 -- trigger pour vérifier qu'un profil Enfant ne visionne pas un épisode d'une série dont la classification est inadaptée
-CREATE OR REPLACE TRIGGER lectenf_ep before insert on LectureEP
+CREATE OR REPLACE TRIGGER lectenf_ep before insert on LectureEP for each row
 DECLARE
 	t	Profil.TypeProfil%type;
 	cl	Contenu.Classification%type;
@@ -430,7 +465,7 @@ END;
 /
 
 -- trigger pour vérifier que le profil d'un compte Essentiel ne visionne pas de contenu payant
-CREATE OR REPLACE TRIGGER dispo_ep before insert on LectureEP
+CREATE OR REPLACE TRIGGER dispo_ep before insert on LectureEP for each row
 DECLARE
 	a	Abonnement.TypeAbonnement%type;
 	d	Contenu.Disponibilite%type;
@@ -454,17 +489,18 @@ END;
 
 -- création de la table
 CREATE TABLE Avis (
-IDClient NUMBER REFERENCES Profil(IDClient) ON DELETE CASCADE,
-IDProfil NUMBER REFERENCES Profil(IDProfil) ON DELETE CASCADE,
+IDClient NUMBER,
+IDProfil NUMBER(1),
 IDContenu NUMBER REFERENCES Contenu(IDContenu),
-Note NUMBER(2) CHECK (between 1 and 10),
+Note NUMBER(2) CHECK (Note between 1 and 10),
 Commentaire VARCHAR(1000),
-PRIMARY KEY (IDClient, IDProfil, IDContenu)
+PRIMARY KEY (IDClient, IDProfil, IDContenu),
+FOREIGN KEY (IDClient, IDProfil) REFERENCES Profil(IDClient, IDProfil) ON DELETE CASCADE
 );
 /
 
 -- trigger pour vérifier qu'un profil Enfant ne peut pas écrire d'avis
-CREATE OR REPLACE TRIGGER avis_enf before insert on Avis
+CREATE OR REPLACE TRIGGER avis_enf before insert on Avis for each row
 DECLARE
 	t	Profil.TypeProfil%type;
 BEGIN
