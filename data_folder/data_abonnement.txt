@@ -1,0 +1,4 @@
+'Essentiel',0.00
+'Etudiant',5.99
+'Standard',9.49
+'Famille',14.99
